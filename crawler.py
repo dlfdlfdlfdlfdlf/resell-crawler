@@ -10,12 +10,14 @@ import threading
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 ]
 
 ACCEPT_LANGS = [
@@ -58,7 +60,7 @@ def search_region(keyword, region_id, retry=0):
            f'?search={kw_enc}&in={region_id}'
            f'&_data=routes%2Fkr.buy-sell._index')
     try:
-        time.sleep(random.uniform(0.3, 0.8))
+        time.sleep(random.uniform(0.2, 0.6))
         r = requests.get(url, headers=get_headers(), timeout=15)
         if r.status_code in (403, 429):
             return 'blocked', []
@@ -67,7 +69,7 @@ def search_region(keyword, region_id, retry=0):
         return 'ok', articles
     except Exception:
         if retry < 2:
-            time.sleep(random.uniform(1.0, 3.0))
+            time.sleep(random.uniform(1.0, 2.0))
             return search_region(keyword, region_id, retry + 1)
         return 'timeout', []
 
@@ -98,7 +100,7 @@ def parse_articles(articles):
 def main():
     keyword = sys.argv[1] if len(sys.argv) > 1 else '루이비통'
     chunk = int(sys.argv[2]) if len(sys.argv) > 2 else 1
-    total_chunks = int(sys.argv[3]) if len(sys.argv) > 3 else 20
+    total_chunks = int(sys.argv[3]) if len(sys.argv) > 3 else 40
 
     try:
         with open('regions.json', encoding='utf-8') as f:
@@ -129,7 +131,7 @@ def main():
         if status == 'blocked':
             with lock:
                 blocked += 1
-            time.sleep(random.uniform(4.0, 8.0))
+            time.sleep(random.uniform(3.0, 6.0))
             status, articles = search_region(keyword, rid)
 
         if status == 'timeout':
@@ -144,7 +146,7 @@ def main():
 
         with lock:
             done += 1
-            if done % 100 == 0:
+            if done % 50 == 0:
                 print(f"진행: {done}/{len(regions)} / 수집: {len(results)}건 / 차단: {blocked} / 타임아웃: {timeout_cnt}")
 
     with ThreadPoolExecutor(max_workers=3) as executor:
