@@ -5,6 +5,7 @@ import random
 import urllib.parse
 import requests
 from concurrent.futures import ThreadPoolExecutor
+import threading
 
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -97,8 +98,8 @@ def parse_articles(articles):
 def main():
     keyword = sys.argv[1] if len(sys.argv) > 1 else '루이비통'
     chunk = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    total_chunks = int(sys.argv[3]) if len(sys.argv) > 3 else 20
 
-    # 로컬 파일에서 지역 목록 로드
     try:
         with open('regions.json', encoding='utf-8') as f:
             all_regions = json.load(f)
@@ -107,35 +108,33 @@ def main():
         sys.exit(1)
 
     total = len(all_regions)
-    chunk_size = (total + 9) // 10
+    chunk_size = (total + total_chunks - 1) // total_chunks
     start = (chunk - 1) * chunk_size
     end = min(start + chunk_size, total)
     regions = all_regions[start:end]
 
-    print(f"청크 {chunk}/10: {start}~{end} ({len(regions)}개 지역) 키워드: {keyword}")
-    print(f"샘플 지역 ID: {get_region_id(regions[0])}")
+    print(f"청크 {chunk}/{total_chunks}: {start}~{end} ({len(regions)}개 지역) 키워드: {keyword}")
 
     results = {}
     done = 0
     blocked = 0
-    timeout = 0
-    lock = __import__('threading').Lock()
+    timeout_cnt = 0
+    lock = threading.Lock()
 
     def process(region):
-        nonlocal done, blocked, timeout
+        nonlocal done, blocked, timeout_cnt
         rid = get_region_id(region)
         status, articles = search_region(keyword, rid)
 
         if status == 'blocked':
             with lock:
                 blocked += 1
-            print(f"[차단] {rid} - 5초 대기 후 재시도")
             time.sleep(random.uniform(4.0, 8.0))
             status, articles = search_region(keyword, rid)
 
         if status == 'timeout':
             with lock:
-                timeout += 1
+                timeout_cnt += 1
 
         if status == 'ok':
             parsed = parse_articles(articles)
@@ -146,9 +145,8 @@ def main():
         with lock:
             done += 1
             if done % 100 == 0:
-                print(f"진행: {done}/{len(regions)} / 수집: {len(results)}건 / 차단: {blocked} / 타임아웃: {timeout}")
+                print(f"진행: {done}/{len(regions)} / 수집: {len(results)}건 / 차단: {blocked} / 타임아웃: {timeout_cnt}")
 
-    # 동시 5개로 줄여서 차단 최소화
     with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(process, regions)
 
@@ -156,7 +154,7 @@ def main():
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(list(results.values()), f, ensure_ascii=False)
 
-    print(f"완료! {len(results)}건 저장 -> {output_file} (차단: {blocked}, 타임아웃: {timeout})")
+    print(f"완료! {len(results)}건 저장 -> {output_file} (차단: {blocked}, 타임아웃: {timeout_cnt})")
 
 if __name__ == '__main__':
     main()
