@@ -25,12 +25,13 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
 
     - name: Install dependencies
       run: pip install requests
 
     - name: Run crawler
-      run: python crawler.py "${{ github.event.inputs.keyword }}" "${{ matrix.chunk }}" 20
+      run: python crawler.py "${{ github.event.inputs.keyword }}" "${{ matrix.chunk }}" 40
 
     - name: Upload results
       uses: actions/upload-artifact@v4
