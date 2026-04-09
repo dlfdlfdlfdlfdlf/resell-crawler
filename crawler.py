@@ -10,14 +10,25 @@ USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0',
 ]
 
 ACCEPT_LANGS = [
     'ko-KR,ko;q=0.9',
-    'ko-KR,ko;q=0.9,en-US;q=0.8',
+    'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
     'ko,en-US;q=0.9,en;q=0.8',
+    'ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3',
+]
+
+REFERERS = [
+    'https://www.daangn.com/kr/buy-sell/',
+    'https://www.daangn.com/kr/buy-sell/s/',
+    'https://www.daangn.com/kr/',
+    'https://www.daangn.com/',
 ]
 
 def get_headers():
@@ -26,10 +37,11 @@ def get_headers():
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': random.choice(ACCEPT_LANGS),
         'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://www.daangn.com/kr/buy-sell/',
+        'Referer': random.choice(REFERERS),
         'Sec-Fetch-Dest': 'empty',
         'Sec-Fetch-Mode': 'cors',
         'Sec-Fetch-Site': 'same-origin',
+        'Connection': 'keep-alive',
     }
 
 def get_region_id(region):
@@ -45,15 +57,16 @@ def search_region(keyword, region_id, retry=0):
            f'?search={kw_enc}&in={region_id}'
            f'&_data=routes%2Fkr.buy-sell._index')
     try:
-        r = requests.get(url, headers=get_headers(), timeout=10)
+        time.sleep(random.uniform(0.3, 0.8))
+        r = requests.get(url, headers=get_headers(), timeout=15)
         if r.status_code in (403, 429):
             return 'blocked', []
         data = r.json()
         articles = (data.get('allPage') or {}).get('fleamarketArticles', [])
         return 'ok', articles
     except Exception:
-        if retry < 1:
-            time.sleep(random.uniform(1.0, 2.0))
+        if retry < 2:
+            time.sleep(random.uniform(1.0, 3.0))
             return search_region(keyword, region_id, retry + 1)
         return 'timeout', []
 
@@ -85,7 +98,7 @@ def main():
     keyword = sys.argv[1] if len(sys.argv) > 1 else '루이비통'
     chunk = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 
-    # 로컬 파일에서 지역 목록 로드 (GitHub Actions에서 체크아웃된 파일)
+    # 로컬 파일에서 지역 목록 로드
     try:
         with open('regions.json', encoding='utf-8') as f:
             all_regions = json.load(f)
@@ -105,30 +118,45 @@ def main():
     results = {}
     done = 0
     blocked = 0
+    timeout = 0
+    lock = __import__('threading').Lock()
 
     def process(region):
-        nonlocal done, blocked
+        nonlocal done, blocked, timeout
         rid = get_region_id(region)
         status, articles = search_region(keyword, rid)
-        if status == 'blocked':
-            blocked += 1
-            time.sleep(random.uniform(3.0, 6.0))
-            status, articles = search_region(keyword, rid)
-        if status == 'ok':
-            for item in parse_articles(articles):
-                results[item['id']] = item
-        done += 1
-        if done % 100 == 0:
-            print(f"진행: {done}/{len(regions)} / 수집: {len(results)}건 / 차단: {blocked}건")
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+        if status == 'blocked':
+            with lock:
+                blocked += 1
+            print(f"[차단] {rid} - 5초 대기 후 재시도")
+            time.sleep(random.uniform(4.0, 8.0))
+            status, articles = search_region(keyword, rid)
+
+        if status == 'timeout':
+            with lock:
+                timeout += 1
+
+        if status == 'ok':
+            parsed = parse_articles(articles)
+            with lock:
+                for item in parsed:
+                    results[item['id']] = item
+
+        with lock:
+            done += 1
+            if done % 100 == 0:
+                print(f"진행: {done}/{len(regions)} / 수집: {len(results)}건 / 차단: {blocked} / 타임아웃: {timeout}")
+
+    # 동시 5개로 줄여서 차단 최소화
+    with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(process, regions)
 
     output_file = f'results_{chunk}.json'
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(list(results.values()), f, ensure_ascii=False)
 
-    print(f"완료! {len(results)}건 저장 -> {output_file}")
+    print(f"완료! {len(results)}건 저장 -> {output_file} (차단: {blocked}, 타임아웃: {timeout})")
 
 if __name__ == '__main__':
     main()
