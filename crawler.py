@@ -6,8 +6,6 @@ import urllib.parse
 import requests
 from concurrent.futures import ThreadPoolExecutor
 
-REGIONS_URL = "https://raw.githubusercontent.com/dlfdlfdlfdlf/resell-crawler/main/regions.json"
-
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -87,9 +85,10 @@ def main():
     keyword = sys.argv[1] if len(sys.argv) > 1 else '루이비통'
     chunk = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 
+    # 로컬 파일에서 지역 목록 로드 (GitHub Actions에서 체크아웃된 파일)
     try:
-        r = requests.get(REGIONS_URL, timeout=10)
-        all_regions = r.json()
+        with open('regions.json', encoding='utf-8') as f:
+            all_regions = json.load(f)
     except Exception as e:
         print(f"지역 목록 로드 실패: {e}")
         sys.exit(1)
