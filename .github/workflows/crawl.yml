@@ -1,0 +1,40 @@
+name: Daangn Crawler
+
+on:
+  workflow_dispatch:
+    inputs:
+      keyword:
+        description: '검색 키워드 (예: 루이비통)'
+        required: true
+        default: '루이비통'
+      chunk:
+        description: '청크 번호 (1~10)'
+        required: true
+        default: '1'
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install requests
+
+    - name: Run crawler
+      run: python crawler.py "${{ github.event.inputs.keyword }}" "${{ github.event.inputs.chunk }}"
+
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: results-chunk-${{ github.event.inputs.chunk }}
+        path: results_${{ github.event.inputs.chunk }}.json
+        retention-days: 1
