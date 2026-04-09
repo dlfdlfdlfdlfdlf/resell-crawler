@@ -147,7 +147,7 @@ def main():
             if done % 100 == 0:
                 print(f"진행: {done}/{len(regions)} / 수집: {len(results)}건 / 차단: {blocked} / 타임아웃: {timeout_cnt}")
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         executor.map(process, regions)
 
     output_file = f'results_{chunk}.json'
