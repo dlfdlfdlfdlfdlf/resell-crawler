@@ -97,8 +97,10 @@ def main():
     keyword      = sys.argv[1] if len(sys.argv) > 1 else '루이비통'
     chunk        = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 
-    # 인자 개수로 1차/2차 구분
-    if len(sys.argv) >= 7:
+    # 전달된 인자 개수 (스크립트 이름 제외)
+    arg_count = len(sys.argv) - 1
+
+    if arg_count >= 6:
         total_chunks = int(sys.argv[3])
         max_workers  = int(sys.argv[4])
         delay_min    = float(sys.argv[5])
@@ -106,9 +108,9 @@ def main():
         is_retry = False
     else:
         total_chunks = None
-        max_workers  = int(sys.argv[3]) if len(sys.argv) > 3 else 3
-        delay_min    = float(sys.argv[4]) if len(sys.argv) > 4 else 0.5
-        delay_max    = float(sys.argv[5]) if len(sys.argv) > 5 else 1.0
+        max_workers  = int(sys.argv[3]) if arg_count >= 3 else 3
+        delay_min    = float(sys.argv[4]) if arg_count >= 4 else 0.5
+        delay_max    = float(sys.argv[5]) if arg_count >= 5 else 1.0
         is_retry = True
 
     print(f"=== Crawler 시작 ===")
@@ -135,7 +137,6 @@ def main():
     else:
         print(f"🆕 첫 실행: 전체 지역을 크롤링합니다.")
 
-    # 지역 목록 로드
     try:
         with open('regions.json', encoding='utf-8') as f:
             all_regions = json.load(f)
@@ -144,9 +145,7 @@ def main():
         print(f"❌ regions.json 로드 실패: {e}")
         sys.exit(1)
 
-    # 처리할 지역 목록 결정
     if is_retry:
-        # 차단 지역 ID만 추출하여 해당 region 객체 찾기
         blocked_set = set(existing_blocked)
         regions = [r for r in all_regions if str(r.get('id', '')) in blocked_set]
         print(f"🔄 재시도 대상 지역: {len(regions)}개")
