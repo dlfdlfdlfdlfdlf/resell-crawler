@@ -109,7 +109,6 @@ jobs:
           python crawler.py
           "${{ github.event.inputs.keyword }}"
           "${{ matrix.chunk }}"
-          "${{ github.event.inputs.total_chunks }}"
           "${{ github.event.inputs.max_workers }}"
           "${{ github.event.inputs.delay_min }}"
           "${{ github.event.inputs.delay_max }}"
