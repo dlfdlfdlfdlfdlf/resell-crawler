@@ -7,6 +7,10 @@ on:
         description: '검색 키워드'
         required: true
         default: '루이비통'
+      search_scope:
+        description: '검색 범위 (title=제목만, both=제목+내용)'
+        required: false
+        default: 'both'
       chunk_start:
         description: '시작 청크 번호'
         required: false
@@ -78,13 +82,13 @@ jobs:
         run: >
           python crawler.py
           "${{ github.event.inputs.keyword }}"
+          "${{ github.event.inputs.search_scope }}"
           "${{ matrix.chunk }}"
           "${{ github.event.inputs.total_chunks }}"
           "${{ github.event.inputs.max_workers }}"
           "${{ github.event.inputs.delay_min }}"
           "${{ github.event.inputs.delay_max }}"
         continue-on-error: true
-
 
       - name: Upload results
         uses: actions/upload-artifact@v4
