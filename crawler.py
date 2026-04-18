@@ -95,6 +95,8 @@ def parse_articles(articles, keyword, search_scope):
         price = int(float(price_raw)) if price_raw else 0
         region = a.get('region', {})
         rname = region.get('name3') or region.get('name') or ''
+        created_at  = a.get('createdAt', '')
+        boosted_at  = a.get('boostedAt', '')
         results.append({
             'id': aid,
             'title': title,
@@ -104,7 +106,8 @@ def parse_articles(articles, keyword, search_scope):
             'url': a.get('href', ''),
             'region': rname,
             'full_region': f"{region.get('name1','')} {region.get('name2','')} {rname}".strip(),
-            'created_at': a.get('createdAt') or a.get('boostedAt', ''),
+            'created_at':  created_at or boosted_at,
+            'boosted_at':  boosted_at,
             'content': content[:100],
         })
     return results
